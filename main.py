@@ -52,9 +52,11 @@ print(encoder(tweet))
 # Prepare the model
 model = tf.keras.Sequential([
     encoder,
-    tf.keras.layers.Embedding(input_dim=len(encoder.get_vocabulary()), output_dim=128, mask_zero=True),
+    tf.keras.layers.Embedding(input_dim=len(encoder.get_vocabulary()), output_dim=256, mask_zero=True),
+    tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
     tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128)),
-    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dropout(0.5),
     tf.keras.layers.Dense(1)
 ])
 
@@ -65,11 +67,10 @@ sample_tweet = tweet.numpy()
 predictions = model.predict(np.array([sample_tweet]))
 print(predictions)
 
-
 """Train the model"""
 
 # Shuffle dataset
-BUFFER_SIZE = 10000
+BUFFER_SIZE = 1000
 BATCH_SIZE = 64
 train_tf_dataset = train_tf_dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 test_tf_dataset = test_tf_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
@@ -77,12 +78,18 @@ test_tf_dataset = test_tf_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 model.compile(loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
               optimizer=tf.keras.optimizers.Adam(1e-4),
               metrics=['accuracy'])
+model.summary()
+
 # Train the model
-history = model.fit(train_tf_dataset, epochs=10,
+history = model.fit(train_tf_dataset, epochs=15,
                     validation_data=test_tf_dataset,
-                    validation_steps=30)
+                    validation_steps=10)
 
 test_loss, test_acc = model.evaluate(test_tf_dataset)
 
 print('Test Loss:', test_loss)
 print('Test Accuracy:', test_acc)
+
+if test_acc > 0.7:
+    model.save("DisasterTweetClassifier")
+
